@@ -43,7 +43,6 @@ def init_db():
             key TEXT PRIMARY KEY, value TEXT
         );
     """)
-    # Add image_url and sizes columns if missing (for existing DBs)
     try:
         c.execute("ALTER TABLE products ADD COLUMN image_url TEXT")
     except: pass
@@ -77,7 +76,7 @@ def check_key():
 
 @app.route("/")
 def home():
-    return jsonify({"status": "Abid Shoes API running", "version": "2.0"})
+    return jsonify({"status": "Abid Shoes API running", "version": "2.1"})
 
 @app.route("/api/products")
 def get_products():
@@ -166,7 +165,8 @@ def place_order():
 @app.route("/api/orders/<order_no>")
 def track_order(order_no):
     conn = get_db()
-    r = conn.execute("SELECT order_no,customer_name,status,total,created_at FROM orders WHERE order_no=?", (order_no,)).fetchone()
+    # ✅ Fixed: SELECT * instead of limited fields
+    r = conn.execute("SELECT * FROM orders WHERE order_no=?", (order_no,)).fetchone()
     conn.close()
     if not r: return jsonify({"error": "Order not found"}), 404
     return jsonify(dict(r))
@@ -186,7 +186,6 @@ def sync_from_pos():
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     
     for p in data["products"]:
-        # ✅ image_url aur sizes bhi save ho raha hai
         c.execute("""INSERT OR REPLACE INTO products
                      (barcode,name,brand,category,price,stock,image_url,sizes,gender,is_active,updated_at)
                      VALUES (?,?,?,?,?,?,?,?,?,1,?)""",
@@ -197,7 +196,6 @@ def sync_from_pos():
                    p.get("gender","Unisex"), now))
         updated += 1
     
-    # Shop info bhi update
     if "shop_info" in data:
         for k, v in data["shop_info"].items():
             c.execute("INSERT OR REPLACE INTO shop_info(key,value) VALUES (?,?)", (k,v))
